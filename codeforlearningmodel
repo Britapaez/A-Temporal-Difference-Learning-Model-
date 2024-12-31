@@ -1,0 +1,195 @@
+Code for original model:
+trialN = 200;
+alpha = 0.3;
+lamda = 1;
+discount_factor = 0.95;
+timesteps = 50;
+trace_scale = 0.1;
+delay_chain_length = 50;
+stimulus_onset = 10;
+lamda_onset = 50;
+lamda_offset = 51;
+weights = zeros(delay_chain_length, 1);
+values = zeros(1, trialN);
+value_mat = zeros(trialN, timesteps);
+prediction_error_mat = zeros(trialN, timesteps);
+% Move variable initialization outside the loop
+delay_chain = zeros(1, delay_chain_length);
+previous_delay_chain = zeros(1, delay_chain_length);
+previous_value = 0;
+value_prediction = 0;
+prediction_error = 0;
+% Time steps for plotting
+time_steps = 1:timesteps;
+% Start experiment
+for i = 1:trialN
+    stimulus = 0;
+    reward = 0;
+   
+    % Reset delay_chain at the beginning of each trial
+    delay_chain = zeros(1, delay_chain_length);
+    for j = 1:timesteps
+        if j == stimulus_onset
+            delay_chain(1) = 1;
+        end
+        if j == lamda_onset
+            reward = 1;
+        end
+        if j == lamda_offset
+            reward = 0;
+        end
+        value_prediction = delay_chain * weights;
+        error = reward + discount_factor * value_prediction - previous_value;
+        dw = error * previous_delay_chain';
+        weights = weights + alpha * dw;
+        % Bookkeeping
+        previous_delay_chain = delay_chain;
+        delay_chain = [0, delay_chain(1:end-1)];
+        previous_value = value_prediction;
+        value_mat(i, j) = value_prediction;
+        prediction_error_mat(i, j) = error;
+        values(i) = weights(1);
+    end
+    % Reset reward after 100 trials
+    if i > 100
+        reward = 0;
+    end
+end
+% Plot prediction error over the entire trial
+figure;
+subplot(2, 2, 1);
+plot(time_steps, prediction_error_mat(1, :));
+title('Prediction Error (First Conditioning Trial)');
+subplot(2, 2, 2);
+plot(time_steps, prediction_error_mat(100, :));
+title('Prediction Error (After Learning Converged)');
+subplot(2, 2, 3);
+plot(time_steps, prediction_error_mat(101, :));
+title('Prediction Error (1st Trial After Extinction)');
+subplot(2, 2, 4);
+plot(time_steps, prediction_error_mat(200, :));
+title('Prediction Error (After Extinction Complete)');
+
+
+Code for augmented model: 
+
+% Number of participants
+num_participants = 50;
+trialN=200;
+timesteps = 50;
+% Initialize arrays to store data for each participant
+values_all = zeros(num_participants, trialN);
+value_mat_all = zeros(num_participants, trialN, timesteps);
+prediction_error_mat_all = zeros(num_participants, trialN, timesteps);
+% Loop over participants
+for p = 1:num_participants
+    % Initialize parameters for each participant
+    alpha_normal = 0.3;
+    alpha_anxious = 0.5; % Higher learning rate for anxious participants
+    % Other parameters remain the same for all participants
+    lamda = 1;
+    discount_factor = 0.95;
+    timesteps = 50;
+    delay_chain_length = 50;
+    stimulus_onset = 10;
+    lamda_onset = 50;
+    lamda_offset = 51;
+    weights = zeros(delay_chain_length, 1);
+    values = zeros(1, trialN);
+    value_mat = zeros(trialN, timesteps);
+    prediction_error_mat = zeros(trialN, timesteps);
+    delay_chain = zeros(1, delay_chain_length);
+    previous_delay_chain = zeros(1, delay_chain_length);
+    previous_value = 0;
+    value_prediction = 0;
+    prediction_error = 0;
+    % Time steps for plotting
+    time_steps = 1:timesteps;
+    % Start experiment
+    for i = 1:trialN
+        stimulus = 0;
+        reward = 0;
+        delay_chain = zeros(1, delay_chain_length);
+        for j = 1:timesteps
+            if j == stimulus_onset
+                delay_chain(1) = 1;
+            end
+            if j == lamda_onset
+                reward = 1;
+            end
+            if j == lamda_offset
+                reward = 0;
+            end
+            % Use different learning rates for normal and anxious participants
+            if p <= num_participants / 2
+                alpha = alpha_normal;
+            else
+                alpha = alpha_anxious;
+            end
+            value_prediction = delay_chain * weights;
+            error = reward + discount_factor * value_prediction - previous_value;
+            dw = error * previous_delay_chain';
+            weights = weights + alpha * dw;
+            previous_delay_chain = delay_chain;
+            delay_chain = [0, delay_chain(1:end-1)];
+            previous_value = value_prediction;
+            value_mat(i, j) = value_prediction;
+            prediction_error_mat(i, j) = error;
+            values(i) = weights(1);
+        end
+        if i > 100
+            reward = 0;
+        end
+    end
+    % Store data for each participant
+    values_all(p, :) = values;
+    value_mat_all(p, :, :) = value_mat;
+    prediction_error_mat_all(p, :, :) = prediction_error_mat;
+end
+% Compute the mean prediction error across trials for normal participants at specific time points
+mean_prediction_error_normal_1 = mean(prediction_error_mat_all(1:num_participants/2, 1, :), 1);
+mean_prediction_error_normal_2 = mean(prediction_error_mat_all(1:num_participants/2, 100, :), 1);
+mean_prediction_error_normal_3 = mean(prediction_error_mat_all(1:num_participants/2, 101, :), 1);
+mean_prediction_error_normal_4 = mean(prediction_error_mat_all(1:num_participants/2, 200, :), 1);
+% Compute the mean prediction error across trials for anxious participants at specific time points
+mean_prediction_error_anxious_1 = mean(prediction_error_mat_all((num_participants/2 + 1):end, 1, :), 1);
+mean_prediction_error_anxious_2 = mean(prediction_error_mat_all((num_participants/2 + 1):end, 100, :), 1);
+mean_prediction_error_anxious_3 = mean(prediction_error_mat_all((num_participants/2 + 1):end, 101, :), 1);
+mean_prediction_error_anxious_4 = mean(prediction_error_mat_all((num_participants/2 + 1):end, 200, :), 1);
+% Plotting the average prediction error for anxious vs. normal individuals at specific time points
+figure;
+subplot(2, 2, 1);
+plot(time_steps, squeeze(mean_prediction_error_normal_1), 'b-', 'LineWidth', 1.5);
+hold on;
+plot(time_steps, squeeze(mean_prediction_error_anxious_1), 'r-', 'LineWidth', 1.5);
+title('Prediction Error (First Conditioning Trial)');
+xlabel('Time Steps');
+ylabel('Prediction Error');
+legend('Normal', 'Anxious');
+subplot(2, 2, 2);
+plot(time_steps, squeeze(mean_prediction_error_normal_2), 'b-', 'LineWidth', 1.5);
+hold on;
+plot(time_steps, squeeze(mean_prediction_error_anxious_2), 'r-', 'LineWidth', 1.5);
+title('Prediction Error (After Learning Converged)');
+xlabel('Time Steps');
+ylabel('Prediction Error');
+legend('Normal', 'Anxious');
+subplot(2, 2, 3);
+plot(time_steps, squeeze(mean_prediction_error_normal_3), 'b-', 'LineWidth', 1.5);
+hold on;
+plot(time_steps, squeeze(mean_prediction_error_anxious_3), 'r-', 'LineWidth', 1.5);
+title('Prediction Error (1st Trial After Extinction)');
+xlabel('Time Steps');
+ylabel('Prediction Error');
+legend('Normal', 'Anxious');
+subplot(2, 2, 4);
+plot(time_steps, squeeze(mean_prediction_error_normal_4), 'b-', 'LineWidth', 1.5);
+hold on;
+plot(time_steps, squeeze(mean_prediction_error_anxious_4), 'r-', 'LineWidth', 1.5);
+title('Prediction Error (After Extinction Complete)');
+xlabel('Time Steps');
+ylabel('Prediction Error');
+legend('Normal', 'Anxious');
+
+
+
